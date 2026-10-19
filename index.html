@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>星夜魔奏 - 星之節奏反應點擊器</title>
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0d0826 0%, #1c1447 50%, #2f1d5e 100%);
+      --accent-star: #ffe066;
+      --accent-magic: #d47aff;
+      --accent-cyan: #74ebd5;
+      --card-bg: rgba(255, 255, 255, 0.08);
+      --font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      font-family: var(--font-family);
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 背景星空裝飾 */
+    .star-bg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 90%;
+      max-width: 420px;
+      background: var(--card-bg);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      color: var(--accent-star);
+      text-shadow: 0 0 12px rgba(255, 224, 102, 0.6);
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #d1c4e9;
+      margin-bottom: 16px;
+    }
+
+    /* 頂部數據列 */
+    .status-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 0.95rem;
+      font-weight: bold;
+    }
+
+    .status-pill {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* 核心舞台 */
+    .game-arena {
+      width: 240px;
+      height: 240px;
+      position: relative;
+      margin: 16px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* 判定魔法陣 */
+    .magic-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 3px dashed var(--accent-magic);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      box-shadow: 0 0 20px rgba(212, 122, 255, 0.4);
+      transition: transform 0.08s ease;
+      background: rgba(212, 122, 255, 0.1);
+    }
+
+    .magic-circle.hit {
+      transform: scale(1.15);
+      border-color: var(--accent-star);
+      box-shadow: 0 0 25px rgba(255, 224, 102, 0.8);
+    }
+
+    /* 縮小判定圈 */
+    .approach-ring {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      border: 2.5px solid var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    /* 判定浮字 */
+    .judgment-text {
+      position: absolute;
+      top: 15px;
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      opacity: 0;
+      transform: translateY(0);
+      transition: all 0.25s ease-out;
+      pointer-events: none;
+    }
+
+    .judgment-text.show {
+      opacity: 1;
+      transform: translateY(-10px);
+    }
+
+    .perfect { color: var(--accent-star); text-shadow: 0 0 10px #ffe066; }
+    .great { color: var(--accent-cyan); text-shadow: 0 0 10px #74ebd5; }
+    .miss { color: #ff6b81; text-shadow: 0 0 10px #ff6b81; }
+
+    /* 連擊數 */
+    .combo-counter {
+      font-size: 1.1rem;
+      color: var(--accent-magic);
+      font-weight: bold;
+      min-height: 24px;
+      margin-bottom: 8px;
+    }
+
+    /* 大按鈕 */
+    .magic-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 20px;
+      border: none;
+      background: linear-gradient(45deg, #d47aff, #8c52ff);
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(140, 82, 255, 0.4);
+      transition: all 0.1s ease;
+      touch-action: manipulation;
+    }
+
+    .magic-btn:active {
+      transform: scale(0.96);
+      box-shadow: 0 4px 10px rgba(140, 82, 255, 0.3);
+    }
+
+    /* 結算畫面 Modal */
+    .result-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 8, 38, 0.9);
+      backdrop-filter: blur(10px);
+      border-radius: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+    }
+
+    .result-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .rank-title {
+      font-size: 1.6rem;
+      color: var(--accent-star);
+      margin: 12px 0;
+    }
+
+    .stat-list {
+      font-size: 1rem;
+      line-height: 1.8;
+      color: #e0e0e0;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 背景點點星空 -->
+  <canvas class="star-bg" id="starCanvas"></canvas>
+
+  <div class="container">
+    <h1>✨ 星夜魔奏 ✨</h1>
+    <div class="subtitle">在光環縮小到正好的瞬間點擊釋放！</div>
+
+    <div class="status-bar">
+      <div class="status-pill">⏳ 時間：<span id="timeLeft">30</span>s</div>
+      <div class="status-pill">⭐ 分數：<span id="score">0</span></div>
+    </div>
+
+    <div class="combo-counter" id="combo"></div>
+
+    <div class="game-arena" id="arena">
+      <div class="judgment-text" id="judgment"></div>
+      <div class="approach-ring" id="ring"></div>
+      <div class="magic-circle" id="target">🔮</div>
+    </div>
+
+    <button class="magic-btn" id="actionBtn">✨ 開始魔法儀式</button>
+
+    <!-- 結算彈窗 -->
+    <div class="result-modal" id="resultModal">
+      <h2>🎉 演奏結算 🎉</h2>
+      <div class="rank-title" id="rankTitle">🌌 星空大魔導師</div>
+      <div class="stat-list">
+        最終分數：<span id="finalScore">0</span> 分<br>
+        最高連擊：<span id="finalCombo">0</span> Combo<br>
+        完美星芒：<span id="perfectCount">0</span> 次
+      </div>
+      <button class="magic-btn" id="restartBtn">💫 再次挑戰</button>
+    </div>
+  </div>
+
+  <script>
+    // --- 瀏覽器原生 Web Audio API 音效合成 ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function playTone(freq, duration, type = 'sine') {
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.log('Audio init waited');
+      }
+    }
+
+    function soundPerfect() {
+      playTone(523.25, 0.15); // C5
+      setTimeout(() => playTone(659.25, 0.2), 60); // E5
+      setTimeout(() => playTone(783.99, 0.3), 120); // G5
+    }
+
+    function soundGreat() {
+      playTone(523.25, 0.15);
+      setTimeout(() => playTone(659.25, 0.25), 80);
+    }
+
+    function soundMiss() {
+      playTone(180, 0.2, 'sawtooth');
+    }
+
+    // --- 背景星星動態 ---
+    const canvas = document.getElementById('starCanvas');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      stars = Array.from({ length: 45 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 0.8,
+        alpha: Math.random(),
+        speed: Math.random() * 0.02 + 0.005
+      }));
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function renderStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        s.alpha += s.speed;
+        const opacity = (Math.sin(s.alpha) + 1) / 2;
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      requestAnimationFrame(renderStars);
+    }
+    renderStars();
+
+    // --- 遊戲邏輯與節奏機制 ---
+    let isPlaying = false;
+    let score = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let perfects = 0;
+    let timeLeft = 30;
+    let timerInterval = null;
+    let spawnTimeout = null;
+
+    // 圓圈縮小參數 (目標尺寸為 80px)
+    const TARGET_SIZE = 80;
+    const START_SIZE = 220;
+    const DURATION = 1000; // 每個音符縮小時間 1 秒
+    let noteStartTime = 0;
+    let noteActive = false;
+    let noteAnimFrame = null;
+
+    const ring = document.getElementById('ring');
+    const target = document.getElementById('target');
+    const judgment = document.getElementById('judgment');
+    const scoreEl = document.getElementById('score');
+    const comboEl = document.getElementById('combo');
+    const timeLeftEl = document.getElementById('timeLeft');
+    const actionBtn = document.getElementById('actionBtn');
+    const resultModal = document.getElementById('resultModal');
+    const arena = document.getElementById('arena');
+
+    function startGame() {
+      isPlaying = true;
+      score = 0;
+      combo = 0;
+      maxCombo = 0;
+      perfects = 0;
+      timeLeft = 30;
+
+      scoreEl.textContent = score;
+      comboEl.textContent = '';
+      timeLeftEl.textContent = timeLeft;
+      resultModal.classList.remove('active');
+      actionBtn.textContent = '💫 點擊 / 施放星芒！';
+
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timeLeftEl.textContent = timeLeft;
+        if (timeLeft <= 0) endGame();
+      }, 1000);
+
+      spawnNote();
+    }
+
+    function spawnNote() {
+      if (!isPlaying) return;
+      noteActive = true;
+      noteStartTime = performance.now();
+      ring.style.opacity = '1';
+
+      function updateRing(now) {
+        if (!noteActive) return;
+        const elapsed = now - noteStartTime;
+        const progress = elapsed / DURATION;
+
+        if (progress >= 1.25) {
+          // 超過判定時間 -> MISS
+          triggerJudge('miss');
+          return;
+        }
+
+        const currentSize = START_SIZE - (START_SIZE - TARGET_SIZE) * progress;
+        ring.style.width = `${Math.max(currentSize, 30)}px`;
+        ring.style.height = `${Math.max(currentSize, 30)}px`;
+
+        noteAnimFrame = requestAnimationFrame(updateRing);
+      }
+      noteAnimFrame = requestAnimationFrame(updateRing);
+    }
+
+    function triggerJudge(type) {
+      noteActive = false;
+      cancelAnimationFrame(noteAnimFrame);
+      ring.style.opacity = '0';
+
+      judgment.className = `judgment-text ${type} show`;
+
+      if (type === 'perfect') {
+        judgment.textContent = '✨ PERFECT!';
+        score += 100;
+        combo++;
+        perfects++;
+        soundPerfect();
+        target.textContent = '🌟';
+      } else if (type === 'great') {
+        judgment.textContent = '💫 GREAT!';
+        score += 50;
+        combo++;
+        soundGreat();
+        target.textContent = '✨';
+      } else {
+        judgment.textContent = '💨 MISS...';
+        combo = 0;
+        soundMiss();
+        target.textContent = '💤';
+      }
+
+      target.classList.add('hit');
+      setTimeout(() => {
+        target.classList.remove('hit');
+        target.textContent = '🔮';
+      }, 150);
+
+      setTimeout(() => judgment.classList.remove('show'), 400);
+
+      scoreEl.textContent = score;
+      if (combo > 1) {
+        comboEl.textContent = `${combo} COMBO! 🔥`;
+      } else {
+        comboEl.textContent = '';
+      }
+      if (combo > maxCombo) maxCombo = combo;
+
+      // 間隔 350ms ~ 700ms 隨機發射下一個
+      const nextDelay = Math.random() * 350 + 350;
+      spawnTimeout = setTimeout(spawnNote, nextDelay);
+    }
+
+    function handleHit() {
+      if (!isPlaying) {
+        startGame();
+        return;
+      }
+      if (!noteActive) return;
+
+      const elapsed = performance.now() - noteStartTime;
+      const diff = Math.abs(elapsed - DURATION);
+
+      // 判定區間（毫秒）
+      if (diff <= 85) {
+        triggerJudge('perfect');
+      } else if (diff <= 170) {
+        triggerJudge('great');
+      } else {
+        triggerJudge('miss');
+      }
+    }
+
+    function endGame() {
+      isPlaying = false;
+      noteActive = false;
+      clearInterval(timerInterval);
+      clearTimeout(spawnTimeout);
+      cancelAnimationFrame(noteAnimFrame);
+      ring.style.opacity = '0';
+      actionBtn.textContent = '✨ 開始魔法儀式';
+
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('finalCombo').textContent = maxCombo;
+      document.getElementById('perfectCount').textContent = perfects;
+
+      let rank = '💤 沉睡星子（再加把勁！）';
+      if (score >= 2200) rank = '🌌 星空大魔導師（音感神人！）';
+      else if (score >= 1500) rank = '🌠 耀眼巡星使（節奏極佳！）';
+      else if (score >= 800) rank = '✨ 閃亮見習生（表現不錯！）';
+      document.getElementById('rankTitle').textContent = rank;
+
+      resultModal.classList.add('active');
+    }
+
+    // 事件監聽：支援點擊按鈕、點擊中央舞台、手機觸控
+    actionBtn.addEventListener('click', handleHit);
+    arena.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      handleHit();
+    });
+    document.getElementById('restartBtn').addEventListener('click', startGame);
+  </script>
+</body>
+</html>
